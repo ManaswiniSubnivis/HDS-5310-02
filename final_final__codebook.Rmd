@@ -1,0 +1,407 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+#Loading the required Packages
+install.packages("tidyverse")
+remove.packages("rlang")
+install.packages("rlang")
+install.packages("haven")
+library(haven)
+library(ggplot2)
+
+
+```
+******Importing, Reading and Merging the Datasets*********************************************
+
+```{r}
+#Importing and reading the HIV testing data
+HIV <- read_xpt("P_HSQ.xpt")
+HIV
+
+```
+
+```{r}
+#Importing and reading the demographic data
+DEM <- read_xpt("P_DEMO (1).xpt")
+DEM
+```
+
+```{r}
+#Merging both the datasets
+library(dplyr)
+data <- full_join(HIV,DEM, by = 'SEQN') 
+data
+```
+
+
+
+```{r}
+#Filtering and selecting the variables
+data_HIV <- data %>%
+  select(HSQ590, RIAGENDR, RIDAGEYR, RIDRETH3, DMDEDUC2, DMDMARTZ)%>%
+  filter(RIDAGEYR >= 20)
+
+
+summary(data_HIV)
+```
+
+
+
+*************************Data Cleaning*************************************************************************************
+```{r}
+#recode variables
+
+library(tidyverse)
+
+ HIV_renamed <- data_HIV %>%
+  rename(HIV_Tested = HSQ590,
+         Gender = RIAGENDR,
+         Age = RIDAGEYR,
+         Race = RIDRETH3,
+         Education = DMDEDUC2,
+         Marital_status = DMDMARTZ) 
+HIV_renamed <- HIV_renamed %>%
+  mutate(HIV_Tested = recode_factor(.x = HIV_Tested,
+                                '1' = 'Yes',
+                                '2' = 'No',
+                                '7' = 'Refused',
+                                '9' = 'Dont Know',
+                                '.' = 'Missing'))%>%
+  
+  #drop_na(HIV_Tested)%>%
+  
+  mutate(Gender = recode_factor(.x = Gender,
+                                  `1` = 'Male',
+                                  `2` = 'Female'))%>%
+  
+  #drop_na(Gender)%>%
+  
+  mutate(Age_group = case_when(
+    Age < 30 ~ "Under 30",
+    Age >= 30 & Age < 40 ~ "30-39",
+    Age >= 40 & Age < 50 ~ "40-49",
+    Age >= 50 & Age < 60 ~ "50-59",
+    Age >= 60 ~ "60 or above"
+    ))%>%
+  
+  #drop_na(Age)%>%
+  
+  mutate(Race = recode_factor(.x = Race,
+                                  '1' = 'Mexican American',
+                                  '2' = 'Other Hispanic',
+                                  '3' = 'Non-Hispanic White',
+                                  '4' = 'Non-Hispanic Black',
+                                  '6' = 'Non-Hispanic Asian',
+                                  '7' = 'Other Race, Including Multi-Racial',
+                                  '.' = 'Missing'))%>%
+  
+  #drop_na(Race)%>%
+  
+  mutate(Education = recode_factor(.x = Education,
+                                  '1' = 'Less than 9th grade',
+                                  '2' = '9-11th grade (Includes 12th grade with no diploma)',
+                                  '3' = 'High school graduate/GED or equivalent',
+                                  '4' = 'Some college or AA degree',
+                                  '5' = 'College graduate or above',
+                                  '7' = 'Refused',
+                                  '9' = 'Dont Know',
+                                  '.' = 'Missing'))%>%
+  
+  #drop_na(Education)%>%
+  
+  mutate(Marital_status = recode_factor(.x = Marital_status,
+                                   `1` = 'Married/Living with Partner',
+                                   `2` = 'Widowed/Divorced/Separated',
+                                   `3` = 'Never married',
+                                   `7` = 'Refused',
+                                  `99`= 'Dont Know',
+                                  '.' = 'Missing'))
+
+#drop_na(Marital_status)
+
+  
+HIV_renamed
+View(HIV_renamed)
+
+```
+         
+
+```{r}
+#Checking the summary
+summary(HIV_renamed)
+```
+
+```{r}
+#description of the data set 
+Hmisc::describe(x = HIV_renamed)
+
+```
+
+```{r}
+#summarizing HIV testing
+HIV_renamed %>% 
+  group_by(HIV_Tested) %>% 
+  summarize(freq.Tested = n()) %>% 
+  mutate(perc.Tested = 100 * (freq.Tested / sum(freq.Tested))) %>%
+  mutate(valid.perc = 100 * (freq.Tested/ (sum(freq.Tested[na.omit(object = HIV_Tested)]))))
+
+```
+```
+Interpretation:
+
+The 2017-March 2020 NHANES dataset had a total of 9232 participants. Of these, 1245 (13.5%) were not asked or were otherwise missing a response to the HIV test question. Of the 86.5% who responded, some did not know if they have been tested  (n = 228; 2.85%). Most reported that they have not been previously tested (n = 4498; 56.32%) and 3261 have been previously tested (40.83%).
+```
+```{r}
+#graphing HIV testing 
+HIV_renamed <- HIV_renamed %>%
+  drop_na(HIV_Tested)
+
+ggplot(data = HIV_renamed, aes(x = HIV_Tested)) +
+  geom_bar(fill = "light blue") +
+  labs(x = "HIV Tested", y = "Count") +
+  ggtitle("Distribution of HIV Tested")
+```
+interpretation: The histogram shows that people who said that they have not tested for HIV are more than than the people who have, with a minority of people do not know.
+
+```{r}
+#summerizing gender
+HIV_renamed %>% 
+  group_by(Gender) %>% 
+  summarize(freq.Gender = n()) %>% 
+  mutate(perc.Gender= 100 * (freq.Gender / sum(freq.Gender))) 
+```
+Interpretation: a total of 7987 participants 50.93% were Female (4068) while 49.07% were Male.
+
+```{r}
+# graphing gender
+ggplot(data = HIV_renamed, aes(x = Gender)) +
+  geom_bar(fill = "light blue") +
+  labs(x = "Gender", y = "Count") +
+  ggtitle ("Distribution of Gender")
+```
+
+Interpretation: the participants gender are close in numbers however, the gender Female has a higher count than the male gender.
+
+```{r}
+#summarizing education levels
+HIV_renamed %>% 
+  group_by(Education) %>% 
+  summarize(freq.ED = n()) %>% 
+  mutate(perc.ED= 100 * (freq.ED / sum(freq.ED))) 
+ 
+```
+
+Interpretation: out of a total of 7987, 2629 (32.92%) Have some sort of collage or AA degree, followed by 24.65% of college graduate or above (n= 1969) and 24.31% high school graduate or equivalent (n=1942). 18% had less than a 12 grade diploma, 10.9% had 9-11 grade education and 7.19% is less than 9th grade education. 9 people refused to answer or did not know there education level making up 0.11%.
+
+```{r}
+# graphing education levels
+ggplot(data = HIV_renamed, aes(x = Education)) +
+  geom_bar(fill = "light blue", bin=100) +
+  labs(x = "Education", y = "Count") +
+  ggtitle("Distribution of Education")+
+theme(axis.text.x=element_text(size=rel(0.8), angle=90))
+
+
+```
+```{r}
+HIV_renamed %>% 
+  group_by(Marital_status) %>% 
+  summarize(freq.MS = n()) %>% 
+  mutate(perc.MS= 100 * (freq.MS / sum(freq.MS)))%>%
+  mutate(valid.perc = 100 * (freq.MS/ (sum(freq.MS[na.omit(object = Marital_status)]))))
+
+```
+Interpretation: 
+The NHANES dataset had a total of 7987 participants. Of these, 6(0.1%) were did not know or were otherwise missing a response to the Martial status question. Of the 99.9% who responded, most had a marital status of married/living with partner  (n = 4606; 57.7%). Some had a status of widowed/divorced/separated (n = 1811; 52.69%), 1562 have never been married (19.57%) and 2 people did not know their marital status0.025%).
+
+```{r}
+# Graphing Marital_status
+ggplot(data = HIV_renamed, aes(x = Marital_status)) +
+  geom_bar(fill = "light blue") +
+  labs(x = "Marital Status", y = "Count") +
+  ggtitle("Distribution of Marital Status")+
+  theme(axis.text.x=element_text(size=rel(0.5), angle=90))
+```
+```{r}
+HIV_renamed %>% 
+  group_by(Age_group) %>% 
+  summarize(freq.AG = n()) %>% 
+  mutate(perc.AG= 100 * (freq.AG / sum(freq.AG)))
+  
+
+```
+Interpretation: out of a total of 7987 participants, 36.7%  were ages 60 or above(n=2931) making up the biggest portion and under age 30 made up 15.07% (n1204). the remaining 48.23% of participants are made up by the age groups 50-59, 40-49 and 30-39 with 17.41%,15.88% and 15.21% recpectivly.
+```{r}
+#Graphing age group
+ggplot(data = HIV_renamed, aes(x = Age_group)) +
+  geom_bar(fill = "light blue", bins=50) +
+  labs(x = "Age_group", y = "Count") +
+  ggtitle("Distribution of Age_group")
+
+```
+Interpretation:
+the age group 60 or above have the highest count. while all other groups being close to each other.
+```{r}
+HIV_renamed %>% 
+  group_by(Race) %>% 
+  summarize(freq.rc = n()) %>% 
+  mutate(perc.rc= 100 * (freq.rc / sum(freq.rc)))
+
+```
+Interpretation: 
+with 7987 participants, 2835 (35.49%) are white followed by 2120 (26.54%) are black. 11.56%(n=923) of participants are Mexican Americans alongside 827 being other Hispanics making 10.35%. non-Hispanic asians made up 11.25 (n=899) and the last 4.8% are from other races including multi racial.
+```{r}
+#Graphing age group
+ggplot(data = HIV_renamed, aes(x = Race)) +
+  geom_bar(fill = "light blue") +
+  labs(x = "Race", y = "Count") +
+  ggtitle("Distribution of Race")
+theme(axis.text.x=element_text(size=rel(0.5), angle=90))
+
+```
+
+```{r}
+#Histogram to determine the distribution
+Age_histo <- ggplot(data = HIV_renamed, aes(x = Age)) +
+  geom_histogram(fill = "light blue", bins=50) +
+  labs(x = "Age", y = "Count") +
+  ggtitle("Distribution of Age")
+Age_histo
+
+```
+
+Interpretation: Histogram showed that the age is not normal distributed.
+
+```{r}
+
+```
+
+
+********Transforming the age variable and creating histograms**********
+```{r}
+# transforming the age variable
+HIV_transformed <- HIV_renamed %>%
+  mutate(Age.cube.root = Age^(1/3)) %>%
+  mutate(Age.log = log(x = Age)) %>%
+  mutate(Age.inverse = 1/Age) %>%
+  mutate(Age.sqrt = sqrt(x = Age))
+```
+
+```{r}
+# graphing cube root
+cuberoot <- HIV_transformed %>%
+ggplot(aes(x = Age.cube.root)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Cube root of age", y = "Number of participants")
+cuberoot
+```
+
+```{r}
+#graphing log
+logged <- HIV_transformed %>%
+ggplot(aes(x = Age.log)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Log of age", y = "Number of Participants")
+logged
+```
+                                   
+```{r}    
+#graphing inverse
+inversed <- HIV_transformed %>%
+ggplot(aes(x = Age.inverse)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() + xlim(0, 1) +
+labs(x = "Inverse of age", y = "Number of Participants")
+inversed
+```
+
+```{r}
+# graphing squareroot
+squareroot <- HIV_transformed %>%
+ggplot(aes(x = Age.sqrt)) +
+geom_histogram(fill = "#7463AC", color = "white") +
+theme_minimal() +
+labs(x = "Square root of age", y = "")
+squareroot
+```
+```{r}
+#comparing histograms
+gridExtra::grid.arrange(Age_histo, cuberoot, logged, inversed, squareroot)
+
+```
+
+
+```{r}
+HIV_renamed %>%
+  summarize(mean.Age = mean(x = Age,na.rm = TRUE),
+          sd.Age = sd(x= Age,na.rm = TRUE),
+          med.Age = median(x = Age,na.rm = TRUE),
+          mode.Age = names(x = sort(table(Age),decreasing = TRUE))[1])
+
+```
+
+```{r}
+semTools::skew(object = HIV_renamed$Age)
+```
+
+
+
+*****************Creating table to show all discriptive statistics done above**************************
+```{r}
+HIV_table <- CreateTableOne(data = HIV_renamed)
+HIV_table
+```
+
+```{r}
+print(x = HIV_table, varLabels = TRUE)
+```
+
+```{r}
+library(tableone)
+HIV_desc <- CreateTableOne(data = HIV_renamed,
+                            strata = "HIV_Tested",
+                            vars = c("Age", "Gender", "Education", "Marital_status","Race"))
+HIV_desc
+
+```
+
+```{r}
+print(HIV_desc, showAllLevels = TRUE)
+```
+
+***************Box plotting of the variables******************
+```{r}
+library(ggplot2)
+
+# Box plot of Age by HIV_Tested
+ggplot(data = HIV_renamed, aes(x = HIV_Tested, y = Age, fill = HIV_Tested)) +
+  geom_boxplot() +
+  labs(x = "HIV_Tested", y = "Age", title = "Age Distribution by HIV_Tested") +
+  theme_minimal()
+
+# Box plot of Education by HIV_Tested
+ggplot(data = HIV_renamed, aes(x = HIV_Tested, y = Education, fill = HIV_Tested)) +
+  geom_boxplot() +
+  labs(x = "HIV_Tested", y = "Education", title = "Education Distribution by HIV_Tested") +
+  theme_minimal()
+
+# Box plot of Marital status by HIV_Tested
+ggplot(data = HIV_renamed, aes(x = HIV_Tested , y = Marital_status, fill = HIV_Tested)) +
+  geom_boxplot() +
+  labs(x = "HIV_Tested", y = "Marital_status", title = "Marital status Distribution by HIV_Tested") +
+  theme_minimal()
+
+# Box plot of Gender by HIV_Tested
+ggplot(data = HIV_renamed, aes(x = HIV_Tested , y = Gender, fill = HIV_Tested)) +
+  geom_boxplot() +
+  labs(x = "HIV_Tested", y = "Gender", title = "Gender Distribution by HIV_Tested") +
+  theme_minimal()
+```
+
