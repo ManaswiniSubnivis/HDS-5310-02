@@ -1,4 +1,4 @@
-# HDS-5310-02
+
 Statistical Analysis of HIV Testing using the NHANES datasets(Group Project)
 
 Conducted statistical analysis using NHANES datasets: Utilized RStudio and various packages (tidyverse, rlang, ggplot, haven) to clean, pre-process, and analyze data on HIV prevalence rates among NHANES participants.}
